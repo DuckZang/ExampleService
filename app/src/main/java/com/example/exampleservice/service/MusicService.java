@@ -1,13 +1,12 @@
 package com.example.exampleservice.service;
 
-import android.app.AlarmManager;
-import android.app.Application;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
@@ -19,21 +18,35 @@ import androidx.core.app.NotificationCompat;
 import com.example.exampleservice.MainActivity;
 import com.example.exampleservice.MyApplication;
 import com.example.exampleservice.MyReceiver;
+import com.example.exampleservice.MyReceiverMusic;
 import com.example.exampleservice.R;
 import com.example.exampleservice.model.Song;
 
-public class ForegroundService extends Service {
+public class MusicService extends Service {
     private MediaPlayer mediaPlayer;
-    private boolean isPlaying;
+    private boolean isPlaying = true;
     private static final int ACTION_PAUSE = 1;
     private static final int ACTION_PLAY = 2;
-    private static final int ACTION_CLOSE = 3;
-    private Song mSong;
 
+    public boolean isPlaying() {
+        return isPlaying;
+    }
+
+    public Song getmSong() {
+        return mSong;
+    }
+
+    private Song mSong;
+    private MusicBinder musicBinder = new MusicBinder();
+    public class MusicBinder extends Binder{
+        public MusicService getMusicService(){
+            return MusicService.this;
+        }
+    }
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return musicBinder;
     }
 
     @Override
@@ -75,13 +88,10 @@ public class ForegroundService extends Service {
             case ACTION_PLAY:
                 resumeMusic();
                 break;
-            case ACTION_CLOSE:
-                stopSelf();
-                break;
         }
     }
 
-    private void resumeMusic() {
+    public void resumeMusic() {
         if (mediaPlayer != null && !isPlaying) {
             mediaPlayer.start();
             isPlaying = true;
@@ -89,7 +99,7 @@ public class ForegroundService extends Service {
         }
     }
 
-    private void pauseMusic() {
+    public void pauseMusic() {
         if (mediaPlayer != null && isPlaying) {
             mediaPlayer.pause();
             isPlaying = false;
@@ -99,7 +109,7 @@ public class ForegroundService extends Service {
 
     private void showNotification(Song song) {
         Intent intent = new Intent(this, MainActivity.class);
-        RemoteViews remoteViews = new RemoteViews(getPackageName(), R.layout.custom_notification);
+        RemoteViews remoteViews = new RemoteViews(getPackageName(), R.layout.custom_notification_music);
         remoteViews.setTextViewText(R.id.tv_title_song, song.getTitle());
         remoteViews.setTextViewText(R.id.tv_singer_song, song.getSingle());
         remoteViews.setImageViewResource(R.id.btn_action, R.drawable.icon_pause);
@@ -110,11 +120,9 @@ public class ForegroundService extends Service {
             remoteViews.setOnClickPendingIntent(R.id.btn_action, getPendingIntent(this, ACTION_PLAY));
             remoteViews.setImageViewResource(R.id.btn_action, R.drawable.icon_play);
         }
-        remoteViews.setOnClickPendingIntent(R.id.btn_close, getPendingIntent(this, ACTION_CLOSE));
 
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 123, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new NotificationCompat.Builder(this, MyApplication.CHANNEL_ID)
-                .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .setCustomContentView(remoteViews)
@@ -124,7 +132,7 @@ public class ForegroundService extends Service {
     }
 
     private PendingIntent getPendingIntent(Context context, int action) {
-        Intent intent = new Intent(context, MyReceiver.class);
+        Intent intent = new Intent(context, MyReceiverMusic.class);
         intent.putExtra("actionMusic", action);
         return PendingIntent.getBroadcast(context, action, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
